@@ -4,14 +4,15 @@
 
 CampusFix is a Java desktop application for recording and tracking computer repair requests at a campus ICT support centre. Technicians can register devices, store customer details, record faults and costs, and update the repair status as work progresses.
 
-Built for the CNS 1207 Java CRUD Mini Project.
 
 ## Features
 
 - **Create:** register a new repair service
 - **Read:** view all services in a table
-- **Update:** select a row, edit its details and save
+- **Update:** select a row, edit its details and save (with confirmation)
 - **Delete:** remove a service after a confirmation prompt
+- **Search and filter:** search by customer, device or service, and filter by status
+- **Summary line:** live totals of jobs per status
 - **Status tracking:** Received, Diagnosing, In Progress, Ready for Collection, Collected
 - **Input validation:** required fields, phone, email, date format and cost checks
 - **Error handling:** database errors are shown in dialog boxes
@@ -26,17 +27,21 @@ Built for the CNS 1207 Java CRUD Mini Project.
 ## Project Structure
 
 ```
+```
 CAMPUSFIX
 ├── Databases
-│   └── campusfix-DBS.sql    Database and table creation script
+│   └── campusfix-DBS.sql        Database and table creation script
 ├── lib
 │   └── mysql-connector-j.jar    MySQL JDBC driver
-└── src
-    ├── Main.java            Starts the application
-    ├── Frame.java           Swing GUI and button actions
-    ├── Services.java        Model class (one repair service)
-    ├── ServicesDAO.java     CRUD database operations
-    └── DBConnect.java       JDBC connection
+├── src
+│   ├── Main.java                Starts the application
+│   ├── Frame.java               Swing GUI and button actions
+│   ├── Services.java            Model class (one repair service)
+│   ├── ServicesDAO.java         CRUD database operations
+│   └── DBConnect.java           JDBC connection (reads db.properties)
+├── db.properties.example        Template for database login settings
+├── db.properties                Your own login settings (not on GitHub)
+└── .gitignore
 ```
 
 ## Setup
@@ -55,14 +60,20 @@ CAMPUSFIX
 
 This creates the `campusfix_db` database, the `services` table and five sample records. Rerunning the script resets the table to the sample data.
 
-### 3. Set your MySQL password
+### 3. Set your MySQL login
 
-In `src/DBConnect.java`, change the password to match your own MySQL setup:
+The database login is kept in a file that is not uploaded to GitHub, so each person uses their own password.
 
-```java
-private static final String USER = "root";
-private static final String PASSWORD = "your_password";
+1. In the `CAMPUSFIX` folder, copy `db.properties.example` and name the copy `db.properties`.
+2. Open `db.properties` and replace `your_password_here` with your MySQL password:
+
 ```
+db.url=jdbc:mysql://localhost:3306/campusfix_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+db.user=root
+db.password=your_password_here
+```
+
+Do not use quotes or spaces around the `=`.
 
 ### 4. Run the application
 
@@ -112,11 +123,5 @@ The date must be entered as `yyyy-MM-dd` (for example `2026-11-15`).
 | Access denied for user | Check the username and password in `DBConnect.java` |
 | Unknown database / table doesn't exist | Run `campusfix-DBS.sql` in MySQL Workbench |
 | Communications link failure | Make sure the MySQL server is running |
-
-## Group Members
-
-- Member 1: Database and backend
-- Member 2: OOP and GUI design
-- Member 3: GUI functionality and integration
-
-(Replace with your names and registration numbers.)
+| Public Key Retrieval is not allowed | Add `allowPublicKeyRetrieval=true` to `db.url` in `db.properties` |
+| db.properties not found | Copy `db.properties.example` to `db.properties` and enter your password |

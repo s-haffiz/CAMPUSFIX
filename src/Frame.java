@@ -24,6 +24,9 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableModel;
+import java.util.ArrayList;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 // GUI code for the project
 public class Frame extends JFrame {
@@ -55,8 +58,16 @@ public class Frame extends JFrame {
     // ID of the row currently selected (-1 means nothing selected)
     private int selectedId = -1;
 
+    // Search and filter
+private final JTextField txtSearch = new JTextField(15);
+private final JComboBox<String> cmbFilterStatus = new JComboBox<>(new String[] {
+    "All", "Received", "Diagnosing", "In Progress", "Ready for Collection", "Collected"
+});
+private List<Services> allServices = new ArrayList<>();
+private final JLabel lblSummary = new JLabel();
+
     public Frame() {
-        setTitle("CampusFix Repair Management");
+        setTitle("CampusFix Management");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(1100, 700);
         setLocationRelativeTo(null);
@@ -69,7 +80,14 @@ public class Frame extends JFrame {
         add(top, BorderLayout.NORTH);
 
         // Middle: table
-        add(buildTable(), BorderLayout.CENTER);
+        JPanel center = new JPanel(new BorderLayout());
+        center.add(buildSearchPanel(), BorderLayout.NORTH);
+        center.add(buildTable(), BorderLayout.CENTER);
+        center.add(lblSummary, BorderLayout.SOUTH);
+        add(center, BorderLayout.CENTER);
+        lblSummary.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+
+
 
         // Bottom: buttons
         add(buildButtons(), BorderLayout.SOUTH);
@@ -81,7 +99,7 @@ public class Frame extends JFrame {
     // ---------- Building the screen ----------
 
     private JLabel buildTitle() {
-        JLabel title = new JLabel("CampusFix Repair Management", SwingConstants.CENTER);
+        JLabel title = new JLabel("CampusFix Management", SwingConstants.CENTER);
         title.setFont(new Font("SansSerif", Font.BOLD, 22));
         title.setBorder(BorderFactory.createEmptyBorder(10, 0, 5, 0));
         return title;
@@ -175,6 +193,31 @@ public class Frame extends JFrame {
         return panel;
     }
 
+    private JPanel buildSearchPanel() {
+    JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+    panel.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
+
+    panel.add(new JLabel("Search (customer, device or service):"));
+    panel.add(txtSearch);
+    panel.add(new JLabel("Status:"));
+    panel.add(cmbFilterStatus);
+
+    // Filter as the user types
+    txtSearch.getDocument().addDocumentListener(new DocumentListener() {
+        @Override
+        public void insertUpdate(DocumentEvent e) { applyFilter(); }
+        @Override
+        public void removeUpdate(DocumentEvent e) { applyFilter(); }
+        @Override
+        public void changedUpdate(DocumentEvent e) { applyFilter(); }
+    });
+
+    // Filter when a status is picked
+    cmbFilterStatus.addActionListener(e -> applyFilter());
+
+    return panel;
+}
+
     // ---------- Button actions ----------
 
     private void addService() {
@@ -201,6 +244,12 @@ public class Frame extends JFrame {
         if (s == null) {
             return;
         }
+        int choice = JOptionPane.showConfirmDialog(this,
+                "Save changes to this service?",
+                "Confirm Update", JOptionPane.YES_NO_OPTION);
+                if (choice != JOptionPane.YES_OPTION) {
+                        return;
+                    }
         s.setServiceId(selectedId);
         try {
             dao.updateService(s);
@@ -235,23 +284,62 @@ public class Frame extends JFrame {
 
     // ---------- Helpers ----------
 
-    // Reload every row from the database into the table
-    private void loadTable() {
-        tableModel.setRowCount(0);
-        try {
-            List<Services> list = dao.getAllServices();
-            for (Services s : list) {
-                tableModel.addRow(new Object[] {
-                    s.getServiceId(), s.getServiceName(), s.getCustomerName(),
-                    s.getCustomerEmail(), s.getCustomerPhone(), s.getDeviceName(),
-                    s.getDeviceBrand(), s.getIssueDescription(), s.getDateReceived(),
-                    s.getStatus(), s.getCost()
-                });
-            }
-        } catch (SQLException ex) {
-            showError(ex);
+    // Get fresh data from the database, then show it
+private void loadTable() {
+    try {
+        allServices = dao.getAllServices();
+        updateSummary();
+        applyFilter();
+    } catch (SQLException ex) {
+        showError(ex);
+    }
+}
+
+// Show only the services that match the search text and status
+private void applyFilter() {
+    String keyword = txtSearch.getText().trim().toLowerCase();
+    String status = (String) cmbFilterStatus.getSelectedItem();
+
+    tableModel.setRowCount(0);
+    for (Services s : allServices) {
+        boolean matchesText = keyword.isEmpty()
+            || s.getCustomerName().toLowerCase().contains(keyword)
+            || s.getDeviceName().toLowerCase().contains(keyword)
+            || s.getServiceName().toLowerCase().contains(keyword);
+        boolean matchesStatus = status.equals("All") || s.getStatus().equals(status);
+
+        if (matchesText && matchesStatus) {
+            tableModel.addRow(new Object[] {
+                s.getServiceId(), s.getServiceName(), s.getCustomerName(),
+                s.getCustomerEmail(), s.getCustomerPhone(), s.getDeviceName(),
+                s.getDeviceBrand(), s.getIssueDescription(), s.getDateReceived(),
+                s.getStatus(), s.getCost()
+            });
         }
     }
+}
+
+// Count the services by status and show the totals
+private void updateSummary() {
+    int received = 0, diagnosing = 0, inProgress = 0, ready = 0, collected = 0;
+
+    for (Services s : allServices) {
+        switch (s.getStatus()) {
+            case "Received":             received++;   break;
+            case "Diagnosing":           diagnosing++; break;
+            case "In Progress":          inProgress++; break;
+            case "Ready for Collection": ready++;      break;
+            case "Collected":            collected++;  break;
+        }
+    }
+
+    lblSummary.setText("Total: " + allServices.size()
+        + "  |  Received: " + received
+        + "  |  Diagnosing: " + diagnosing
+        + "  |  In Progress: " + inProgress
+        + "  |  Ready for Collection: " + ready
+        + "  |  Collected: " + collected);
+}
 
     // Copy the selected table row into the form fields
     private void fillFormFromRow(int row) {
