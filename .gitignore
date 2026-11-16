@@ -1,0 +1,9 @@
+# Compiled Java files
+*.class
+
+# VS Code settings
+.vscode/
+
+# Build output folders
+bin/
+out/
